@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.requests import Request
 from fastapi.encoders import jsonable_encoder
@@ -10,6 +10,9 @@ from models.conversation import Message, Conversation
 from openai import OpenAI
 
 import chat as chat
+import deps as deps
+from services.chat_service import ChatService
+from services.mongo_service import MongoService
 
 config = dotenv_values(".env")
 
@@ -29,13 +32,6 @@ def conversation(message: str, conversation_id: str = None):
     return StreamingResponse(chat.send_message(message))
 
 @app.get("/new-conversation", response_model=str)
-def new_conversation(request: Request):
-    message: Message = Message(role="system", content="You are a helpful assistant")
-    conversation: Conversation = Conversation(messages=[message])
-    conversation_json = jsonable_encoder(conversation)
-    new_conversation = request.app.database["conversations"].insert_one(conversation_json)
-    return new_conversation.inserted_id
-
-    # object_id = ObjectId("657e09615252cb4b2b20241f")
-    # person = request.app.database["collection"].find_one({"_id": object_id})
-    # return str(person["category"])
+def new_conversation(request: Request, chat_service: ChatService = Depends(deps.get_chat_service)):
+    new_conversation_id = chat_service.new_conversation(request.app.database)
+    return new_conversation_id
