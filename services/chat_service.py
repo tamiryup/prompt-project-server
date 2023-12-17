@@ -57,6 +57,10 @@ class ChatService:
         self.mongo_service.append_message_to_conversation(db, assistant_message, conversation_id)
 
     def security_check(self, input: str) -> bool:
+        input = input.lower()
+        if "ignore all instructions" in input or "ignore all the instructions" in input:
+            return True
+
         response = client.moderations.create(
             input=input,
             model="text-moderation-latest"
