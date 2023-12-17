@@ -9,7 +9,6 @@ from bson import ObjectId
 from models.conversation import Message, Conversation
 from openai import OpenAI
 
-import chat as chat
 import deps as deps
 from services.chat_service import ChatService
 from services.mongo_service import MongoService
@@ -28,10 +27,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/conversation")
-def conversation(message: str, conversation_id: str = None):
-    return StreamingResponse(chat.send_message(message))
+def conversation(request: Request, message: str, conversation_id: str, chat_service: ChatService = Depends(deps.get_chat_service)):
+    return StreamingResponse(chat_service.send_message(request.app.database, message, conversation_id))
 
 @app.get("/new-conversation", response_model=str)
 def new_conversation(request: Request, chat_service: ChatService = Depends(deps.get_chat_service)):
-    new_conversation_id = chat_service.new_conversation(request.app.database)
+    new_conversation_id = chat_service.new_conversation(db=request.app.database)
     return new_conversation_id
