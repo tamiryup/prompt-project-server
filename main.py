@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.requests import Request
-from fastapi.encoders import jsonable_encoder
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from dotenv import dotenv_values
 from pymongo import MongoClient
@@ -25,6 +25,14 @@ async def lifespan(app: FastAPI):
     app.mongodb_client.close()
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # You can replace ["*"] with the specific domains you want to allow
+    allow_credentials=True,
+    allow_methods=["*"],  # You can replace ["*"] with the specific HTTP methods you want to allow
+    allow_headers=["*"],  # You can replace ["*"] with the specific HTTP headers you want to allow
+)
 
 @app.get("/conversation")
 def conversation(request: Request, message: str, conversation_id: str, chat_service: ChatService = Depends(deps.get_chat_service)):
