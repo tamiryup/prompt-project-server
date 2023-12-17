@@ -1,6 +1,7 @@
 from typing import Generator, List
 from openai import OpenAI
 from pymongo import MongoClient
+from fastapi import HTTPException
 
 from services.mongo_service import MongoService
 from models.conversation import Message, Conversation
@@ -21,8 +22,6 @@ class ChatService:
     # return a context of the last 5 messages + first system message
     def get_prev_messages_array(self, db: MongoClient, conversation_id: str) -> List[Message]:
         conversation: Conversation = self.mongo_service.get_conversation_by_id(db, conversation_id)
-        if conversation is None:
-            pass # raise exception
 
         messages: List[Message] = []
         if len(conversation['messages']) > 5:
@@ -34,7 +33,6 @@ class ChatService:
     def send_message(self, db: MongoClient, message: str, conversation_id: str) -> Generator:
         message_context: List[Message] = self.get_prev_messages_array(db, conversation_id)
 
-        # user_message: Message = Message(role="user", content=message)
         user_message = {"role": "user", "content": message}
         self.mongo_service.append_message_to_conversation(db, user_message, conversation_id)
         message_context.append(user_message)
@@ -47,7 +45,6 @@ class ChatService:
         )
 
         final_answer: str = ""
-
         #create the stream of the assistant answer
         for chunk in stream:
             if chunk.choices[0].delta.content is not None:
@@ -58,3 +55,18 @@ class ChatService:
         # add the final answer to the conversation's mongo document
         assistant_message = Message(role="assistant", content=final_answer)
         self.mongo_service.append_message_to_conversation(db, assistant_message, conversation_id)
+
+    def security_check(self, input: str) -> bool:
+        response = client.moderations.create(
+            input=input,
+            model="text-moderation-latest"
+        )
+        return response.results[0].flagged
+    
+    def invalid_conversation_id(self, db: MongoClient, conversation_id: str) -> bool:
+        conversation: Conversation = self.mongo_service.get_conversation_by_id(db, conversation_id)
+        if conversation is None:
+            return True
+        
+        return False
+        

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.requests import Request
 from fastapi.encoders import jsonable_encoder
@@ -28,6 +28,11 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/conversation")
 def conversation(request: Request, message: str, conversation_id: str, chat_service: ChatService = Depends(deps.get_chat_service)):
+    if(chat_service.security_check(message)):
+        raise HTTPException(status_code=400, detail="This type of prompt breaks our guidelines")
+    if(chat_service.invalid_conversation_id(request.app.database, conversation_id)):
+        raise HTTPException(status_code=400, detail="Invalid Conversation Id")
+
     return StreamingResponse(chat_service.send_message(request.app.database, message, conversation_id))
 
 @app.get("/new-conversation", response_model=str)
